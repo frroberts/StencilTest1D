@@ -31,7 +31,7 @@ __global__ void stencil(float *src, float *dst, int size, float *stencilWeight)
         return;
     float out = 0;
     #pragma unroll
-    for(int i = -10;i < 10; i++)
+    for(int i = -10;i <= 10; i++)
     {
         out += src[idx+i] * stencilWeight[i+10];
     }
@@ -47,7 +47,7 @@ __global__ void stencilReadOnly1(float *src, float *dst, int size, float* stenci
         return;
     float out = 0;
     #pragma unroll
-    for(int i = -10;i < 10; i++)
+    for(int i = -10;i <= 10; i++)
     {
         out += src[idx+i] * __ldg(&stencilWeight[i+10]);
     }
@@ -63,7 +63,7 @@ __global__ void stencilReadOnly2(float *src, float *dst, int size, float* stenci
         return;
     float out = 0;
     #pragma unroll
-    for(int i = -10;i < 10; i++)
+    for(int i = -10;i <= 10; i++)
     {
         out += __ldg(&src[idx+i]) * stencilWeight[i+10];
     }
@@ -79,7 +79,7 @@ __global__ void stencilReadOnly3(float *src, float *dst, int size, float* stenci
         return;
     float out = 0;
     #pragma unroll
-    for(int i = -10;i < 10; i++)
+    for(int i = -10;i <= 10; i++)
     {
         out += __ldg(&src[idx+i]) * __ldg(&stencilWeight[i+10]);
     }
@@ -95,7 +95,7 @@ __global__ void stencilConst1(float *src, float *dst, int size)
         return;
     float out = 0;
     #pragma unroll
-    for(int i = -10;i < 10; i++)
+    for(int i = -10;i <= 10; i++)
     {
         out += src[idx+i] * const_stencilWeight[i+10];
     }
@@ -111,7 +111,7 @@ __global__ void stencilConst2(float *src, float *dst, int size)
         return;
     float out = 0;
     #pragma unroll
-    for(int i = -10;i < 10; i++)
+    for(int i = -10;i <= 10; i++)
     {
         out += __ldg(&src[idx+i]) * const_stencilWeight[i+10];
     }
@@ -134,7 +134,7 @@ __global__ void stencilShared1(float *src, float *dst, int size)
     __syncthreads();
     float out = 0;
     #pragma unroll
-    for(int i = -10;i < 10; i++)
+    for(int i = -10;i <= 10; i++)
     {
         out += buffer[threadIdx.x+10+i] * const_stencilWeight[i+10];
     }
@@ -157,7 +157,7 @@ __global__ void stencilShared2(float *src, float *dst, int size)
     __syncthreads();
     float out = 0;
     #pragma unroll
-    for(int i = -10;i < 10; i++)
+    for(int i = -10;i <= 10; i++)
     {
         out += buffer[threadIdx.x+10+i] * const_stencilWeight[i+10];
     }
@@ -209,10 +209,10 @@ int main()
    
     cudaMemcpyToSymbol(const_stencilWeight, weights, sizeof(float)*21);
 
-    stencil<<<blocks, blockSize>>>(a, bCorr, 10240000, weights);
+    stencil<<<blocks, blockSize>>>(a, bCorr, 10240000-11, weights);
     cudaDeviceSynchronize();   
 
-    stencil<<<blocks, blockSize>>>(a, b, 10240000, weights);
+    stencil<<<blocks, blockSize>>>(a, b, 10240000-11, weights);
     cudaDeviceSynchronize();
     getErrorCuda(cudaMemcpy(bOut, b, sizeof(float)*10240000, cudaMemcpyDefault));
     verify(bOut, bCorr, 1000);
@@ -225,7 +225,7 @@ int main()
     {
         std::chrono::time_point<std::chrono::system_clock> start, end;
         start = std::chrono::system_clock::now();
-        stencil<<<blocks, blockSize>>>(a, b, 10240000, weights);
+        stencil<<<blocks, blockSize>>>(a, b, 10240000-11, weights);
         cudaDeviceSynchronize();   
         end = std::chrono::system_clock::now();
        
@@ -235,7 +235,7 @@ int main()
         std::chrono::duration<float> elapsed_seconds = end-start;
         minTime = std::min(elapsed_seconds.count(), minTime);
     }
-    std::cout << "Non optimized time " << (blockSize*blocks)/minTime << " elem/s" << "Read BW " << (21*blockSize*blocks*sizeof(float)/1000.0/1000.0/1000.0 )/minTime << " GB/s" <<   std::endl;
+    std::cout << "Non optimized time " << (blockSize*blocks)/minTime << " elem/s" << " Read BW " << (21*blockSize*blocks*sizeof(float)/1000.0/1000.0/1000.0 )/minTime << " GB/s" <<   std::endl;
     minTime = 10000;
     std::cout << std::endl;
 
@@ -244,7 +244,7 @@ int main()
         cudaDeviceSynchronize(); 
         std::chrono::time_point<std::chrono::system_clock> start, end;
         start = std::chrono::system_clock::now();
-        stencilReadOnly1<<<blocks, blockSize>>>(a, b, 10240000, weights);
+        stencilReadOnly1<<<blocks, blockSize>>>(a, b, 10240000-11, weights);
         cudaDeviceSynchronize(); 
         end = std::chrono::system_clock::now();
        
@@ -254,14 +254,14 @@ int main()
         std::chrono::duration<float> elapsed_seconds = end-start;
         minTime = std::min(elapsed_seconds.count(), minTime);
     }
-    std::cout << "read only cache stencil coefficients time " <<(blockSize*blocks)/minTime << " elem/s" << "Read BW " << (21*blockSize*blocks*sizeof(float)/1000.0/1000.0/1000.0 )/minTime << " GB/s" <<   std::endl;
+    std::cout << "read only cache stencil coefficients time " <<(blockSize*blocks)/minTime << " elem/s" << " Read BW " << (21*blockSize*blocks*sizeof(float)/1000.0/1000.0/1000.0 )/minTime << " GB/s" <<   std::endl;
     minTime = 10000;
     for(int i  = 0; i < 100; i++)
     {
         cudaDeviceSynchronize(); 
         std::chrono::time_point<std::chrono::system_clock> start, end;
         start = std::chrono::system_clock::now();
-        stencilReadOnly2<<<blocks, blockSize>>>(a, b, 10240000, weights);
+        stencilReadOnly2<<<blocks, blockSize>>>(a, b, 10240000-11, weights);
         cudaDeviceSynchronize(); 
         end = std::chrono::system_clock::now();
        
@@ -271,14 +271,14 @@ int main()
         std::chrono::duration<float> elapsed_seconds = end-start;
         minTime = std::min(elapsed_seconds.count(), minTime);
     }
-    std::cout << "read only data time " << (blockSize*blocks)/minTime << " elem/s" << "Read BW " << (21*blockSize*blocks*sizeof(float)/1000.0/1000.0/1000.0 )/minTime << " GB/s" <<   std::endl;
+    std::cout << "read only data time " << (blockSize*blocks)/minTime << " elem/s" << " Read BW " << (21*blockSize*blocks*sizeof(float)/1000.0/1000.0/1000.0 )/minTime << " GB/s" <<   std::endl;
     minTime = 10000;
         for(int i  = 0; i < 100; i++)
     {
         cudaDeviceSynchronize(); 
         std::chrono::time_point<std::chrono::system_clock> start, end;
         start = std::chrono::system_clock::now();
-        stencilReadOnly3<<<blocks, blockSize>>>(a, b, 10240000, weights);
+        stencilReadOnly3<<<blocks, blockSize>>>(a, b, 10240000-11, weights);
         cudaDeviceSynchronize(); 
         end = std::chrono::system_clock::now();
        
@@ -288,7 +288,7 @@ int main()
         std::chrono::duration<float> elapsed_seconds = end-start;
         minTime = std::min(elapsed_seconds.count(), minTime);
     }
-    std::cout << "read only coefficients and data time " << (blockSize*blocks)/minTime << " elem/s" << "Read BW " << (21*blockSize*blocks*sizeof(float)/1000.0/1000.0/1000.0 )/minTime << " GB/s" <<   std::endl;
+    std::cout << "read only coefficients and data time " << (blockSize*blocks)/minTime << " elem/s" << " Read BW " << (21*blockSize*blocks*sizeof(float)/1000.0/1000.0/1000.0 )/minTime << " GB/s" <<   std::endl;
     minTime = 10000;
 
     std::cout << std::endl;
@@ -308,7 +308,7 @@ int main()
         std::chrono::duration<float> elapsed_seconds = end-start;
         minTime = std::min(elapsed_seconds.count(), minTime);
     }
-    std::cout << "constant memory coefficients " << (blockSize*blocks)/minTime << " elem/s" << "Read BW " << (21*blockSize*blocks*sizeof(float)/1000.0/1000.0/1000.0 )/minTime << " GB/s" <<   std::endl;
+    std::cout << "constant memory coefficients " << (blockSize*blocks)/minTime << " elem/s" << " Read BW " << (21*blockSize*blocks*sizeof(float)/1000.0/1000.0/1000.0 )/minTime << " GB/s" <<   std::endl;
 
     minTime = 10000;
 
@@ -328,7 +328,7 @@ int main()
         std::chrono::duration<float> elapsed_seconds = end-start;
         minTime = std::min(elapsed_seconds.count(), minTime);
     }
-    std::cout << "constant memory coefficients and data through read only cache time " << (blockSize*blocks)/minTime << " elem/s" << "Read BW " << (21*blockSize*blocks*sizeof(float)/1000.0/1000.0/1000.0 )/minTime << " GB/s" <<   std::endl;
+    std::cout << "constant memory coefficients and data through read only cache time " << (blockSize*blocks)/minTime << " elem/s" << " Read BW " << (21*blockSize*blocks*sizeof(float)/1000.0/1000.0/1000.0 )/minTime << " GB/s" <<   std::endl;
     std::cout << std::endl;
 
 
@@ -348,7 +348,7 @@ int main()
         std::chrono::duration<float> elapsed_seconds = end-start;
         minTime = std::min(elapsed_seconds.count(), minTime);
     }
-    std::cout << "constant memory coefficients and data from shared time " << (blockSize*blocks)/minTime << " elem/s" << "Read BW " << (21*blockSize*blocks*sizeof(float)/1000.0/1000.0/1000.0 )/minTime << " GB/s" <<   std::endl;
+    std::cout << "constant memory coefficients and data from shared time " << (blockSize*blocks)/minTime << " elem/s" << " Read BW " << (21*blockSize*blocks*sizeof(float)/1000.0/1000.0/1000.0 )/minTime << " GB/s" <<   std::endl;
     minTime = 10000;
         minTime = 10000;
             for(int i  = 0; i < 100; i++)
@@ -366,7 +366,7 @@ int main()
         std::chrono::duration<float> elapsed_seconds = end-start;
         minTime = std::min(elapsed_seconds.count(), minTime);
     }
-    std::cout << "constant memory coefficients and data from shared thorugh read only time " << (blockSize*blocks)/minTime << " elem/s" << "Read BW " << (21*blockSize*blocks*sizeof(float)/1000.0/1000.0/1000.0 )/minTime << " GB/s" <<   std::endl;
+    std::cout << "constant memory coefficients and data from shared thorugh read only time " << (blockSize*blocks)/minTime << " elem/s" << " Read BW " << (21*blockSize*blocks*sizeof(float)/1000.0/1000.0/1000.0 )/minTime << " GB/s" <<   std::endl;
     minTime = 10000;
 
 
